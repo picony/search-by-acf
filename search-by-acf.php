@@ -1,12 +1,12 @@
 <?php
 /*
 Plugin Name: SACF:Search by Advanced Custom Fields
-Plugin URI: 
+Plugin URI:
 Description: Search plugin for ACF.
-Version: 1.0
+Version: 1.1
 Author: Tadahiko Suzuki
 Author URI: http://suzukitadahiko.jp
-License: GPLv2 or later 
+License: GPLv2 or later
 */
 
 /*
@@ -28,7 +28,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
 
 
 ////////////////////////////////////
-// shortcode
+// shortcodes
 ////////////////////////////////////
 
 /**
@@ -36,7 +36,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA
  */
 add_shortcode('sacf_show', 'sacf_show');
 function sacf_show($attr) {
-  $field = get_field($attr[0]);
+  if (isset($attr[0])) $attr['field'] = $attr[0];
+  $field = get_field($attr['field']);
   if ($field) {
     if( is_array($field) ) {
       $field = @implode( ', ',$field );
@@ -60,7 +61,8 @@ function sacf_show_jpnumber($attr) {
 add_shortcode('sacf_show_boolean', 'sacf_show_boolean');
 function sacf_show_boolean($attr) {
   if (sacf_show($attr) === true) {
-    $field = get_field_object($attr[0]);
+    if (isset($attr[0])) $attr['field'] = $attr[0];
+    $field = get_field($attr['field']);
     return $field['message']; 
   }
   return ""; 
@@ -71,6 +73,10 @@ function sacf_show_boolean($attr) {
  */
 add_shortcode('sacf_form', 'sacf_form');
 function sacf_form($attr, $content=null) {
+  if (isset($attr[0])) $attr['group'] = $attr[0];
+  global $sacf_form_state;
+  $sacf_form_state = new Sacf_form_state($attr['group']);
+
   $converted_content = do_shortcode($content);
 
   // add hidden input element when no input element has attribute named "s".
@@ -86,9 +92,11 @@ function sacf_form($attr, $content=null) {
 }
 function sacf_form_start($attr) {
   $action_uri = home_url('/');
-  return "<form name=\"${attr[0]}\" action=\"$action_uri\" class=\"sacf_form ${attr[0]}\">";
+  return "<form action=\"$action_uri\" class=\"sacf_form\">";
 }
 function sacf_form_end() {
+  global $sacf_form_state;
+  $sacf_form_state = null;
   return "</form>";
 }
 
@@ -97,7 +105,8 @@ function sacf_form_end() {
  */
 add_shortcode('sacf_submit', 'sacf_submit');
 function sacf_submit($attr) {
-  return "<input type=\"submit\" value=\"${attr[0]}\" class=\"sacf_submit\">";
+  if (isset($attr[0])) $attr['value'] = $attr[0];
+  return "<input type=\"submit\" value=\"${attr['value']}\" class=\"sacf_submit\">";
 }
 
 /**
@@ -105,20 +114,23 @@ function sacf_submit($attr) {
  */
 add_shortcode('sacf_input_text', 'sacf_input_text');
 function sacf_input_text($attr) {
-  return "<input type=\"text\" name=\"sacf[${attr[0]}_like]\" class=\"sacf_input_text ${attr[0]}\">";
+  if (isset($attr[0])) $attr['field'] = $attr[0];
+  return "<input type=\"text\" name=\"sacf[${attr['field']}_like]\" class=\"sacf_input_text ${attr['field']}\">";
 }
 
 /**
- * shortcode: ascf_input_checkbox
+ * shortcode: sacf_input_checkbox
  */
 add_shortcode('sacf_input_checkbox', 'sacf_input_checkbox');
 function sacf_input_checkbox($attr) {
+  global $sacf_form_state;
+  if (isset($attr[0])) $attr['field'] = $attr[0];
   $html = "";
-  $field = get_field_object($attr[0]);
+  $field = get_fields_options($sacf_form_state->get_group_id(), $attr['field']);
   foreach ($field['choices'] as $value => $label) {
-    $html .= "<label class=\"sacf_input_checkbox_label ${attr[0]}\">";
-    $html .= "<input type=\"checkbox\" name=\"sacf[${attr[0]}][]\" value=\"${value}\" class=\"sacf_input_checkbox ${attr[0]}\">";
-    $html .= "<span class=\"sacf_input_checkbox_text ${attr[0]}\">${label}</span>";
+    $html .= "<label class=\"sacf_input_checkbox_label ${attr['field']}\">";
+    $html .= "<input type=\"checkbox\" name=\"sacf[${attr['field']}][]\" value=\"${value}\" class=\"sacf_input_checkbox ${attr['field']}\">";
+    $html .= "<span class=\"sacf_input_checkbox_text ${attr['field']}\">${label}</span>";
     $html .= "</label>";
   }
   return $html;
@@ -129,12 +141,14 @@ function sacf_input_checkbox($attr) {
  */
 add_shortcode('sacf_input_radio', 'sacf_input_radio');
 function sacf_input_radio($attr) {
+  global $sacf_form_state;
+  if (isset($attr[0])) $attr['field'] = $attr[0];
   $html = "";
-  $field = get_field_object($attr[0]);
+  $field = get_fields_options($sacf_form_state->get_group_id(), $attr['field']);
   foreach ($field['choices'] as $value => $label) {
-    $html .= "<label class=\"sacf_input_radio_label ${attr[0]}\">";
-    $html .= "<input type=\"radio\" name=\"sacf[${attr[0]}]\" value=\"${value}\" class=\"sacf_input_radio ${attr[0]}\">";
-    $html .= "<span class=\"sacf_input_radio_text ${attr[0]}\">${label}</span>";
+    $html .= "<label class=\"sacf_input_radio_label ${attr['field']}\">";
+    $html .= "<input type=\"radio\" name=\"sacf[${attr['field']}]\" value=\"${value}\" class=\"sacf_input_radio ${attr['field']}\">";
+    $html .= "<span class=\"sacf_input_radio_text ${attr['field']}\">${label}</span>";
     $html .= "</label>";
   }
   return $html;
@@ -145,8 +159,10 @@ function sacf_input_radio($attr) {
  */
 add_shortcode('sacf_select', 'sacf_select');
 function sacf_select($attr) {
-  $html = "<select name=\"sacf[${attr[0]}]\" class=\"sacf_select ${attr[0]}\">";
-  $field = get_field_object($attr[0]);
+  global $sacf_form_state;
+  if (isset($attr[0])) $attr['field'] = $attr[0];
+  $html = "<select name=\"sacf[${attr['field']}]\" class=\"sacf_select ${attr['field']}\">";
+  $field = get_fields_options($sacf_form_state->get_group_id(), $attr['field']);
   foreach ($field['choices'] as $value => $label) {
     $html .= "<option value=\"${value}\">${label}</option>";
   }
@@ -159,12 +175,13 @@ function sacf_select($attr) {
  */
 add_shortcode('sacf_boolean', 'sacf_boolean');
 function sacf_boolean($attr) {
-  $field = get_field_object($attr[0]);
-  //var_dump($field);
+  global $sacf_form_state;
+  if (isset($attr[0])) $attr['field'] = $attr[0];
+  $field = get_fields_options($sacf_form_state->get_group_id(), $attr['field']);
   $label = $field['message'];
-  $html  = "<label class=\"sacf_input_checkbox_label ${attr[0]}\">";
-  $html .= "<input type=\"checkbox\" name=\"sacf[${attr[0]}]\" value=\"1\" class=\"sacf_input_checkbox ${attr[0]}\">";
-  $html .= "<span class=\"sacf_input_checkbox_text ${attr[0]}\">${label}</span>";
+  $html  = "<label class=\"sacf_input_checkbox_label ${attr['field']}\">";
+  $html .= "<input type=\"checkbox\" name=\"sacf[${attr['field']}]\" value=\"1\" class=\"sacf_input_checkbox ${attr['field']}\">";
+  $html .= "<span class=\"sacf_input_checkbox_text ${attr['field']}\">${label}</span>";
   $html .= "</label>";
   return $html;
 }
@@ -179,7 +196,7 @@ function comment_out($attr, $content=null) {
 
 
 ////////////////////////////////////
-// search by acf
+// logics
 ////////////////////////////////////
 
 /**
@@ -229,7 +246,7 @@ function custom_search_join($join){
           // partial match
           $condition .= " AND wp_postmeta_" . $i . ".meta_value LIKE '%" . esc_sql($field_value) . "%'";
         } else {
-          // perect match
+          // perfect match
           $condition .= " AND wp_postmeta_" . $i . ".meta_value = '" . esc_sql($field_value) . "'"; 
         }
       }
@@ -240,6 +257,66 @@ function custom_search_join($join){
   return $join;
 }
 
+/**
+ * get field's options
+ */
+function get_fields_options($group_id, $field_name) {
+  $acf_post = get_post_custom($group_id);
+  foreach ($acf_post as $key => $arr) {
+    if (preg_match( "/^field_/", $key)) {
+      $arr = unserialize($arr[0]);
+      if ($arr['name'] === $field_name) {
+        return $arr;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * get_acf_all_fields_in_group (*for debug)
+ */
+function get_acf_all_fields_in_group($group_id) {
+  $acf_post_custom = get_post_custom($group_id);
+  $acf_fields_object = array();
+  foreach ($acf_post_custom as $key => $arr) {
+    if (preg_match( "/^field_/", $key)) {
+      $arr = unserialize($arr[0]);
+      $field_name = $arr['name'];
+      $acf_fields_object[$field_name] = $arr;
+    }
+  }
+  return $acf_fields_object;
+}
+
+
+////////////////////////////////////
+// classes
+////////////////////////////////////
+
+/**
+ * form state
+ */
+class Sacf_form_state {
+  /**
+   * ACF's group id.
+   */
+  private $group_id;
+
+  public function __construct($group_id) {
+    $this->group_id = $group_id;
+  }
+
+  public function get_group_id() {
+    return $this->group_id;
+  }
+
+  public function __destruct() {
+    $this->group_id = null;
+  }
+}
+global $sacf_form_state;
+
 ////////////////////////////////////
 // utilities
 ////////////////////////////////////
@@ -248,20 +325,33 @@ function custom_search_join($join){
  * jpnumber format 
  */
 function jpnumber_format($int){
-  if(!is_numeric($int)) return $int;
+  if (!is_numeric($int)) return $int;
 
-  $unit = array('万','億','兆','京');
+  $unit = array('万', '億', '兆', '京');
   krsort($unit);
   $tmp = '';
   $count = strlen($int);
   foreach($unit as $k => $v){
-    if($count > (4 * ($k + 1))){
-      if($int!==0) $tmp .= number_format(floor( $int /pow(10000,$k+1))).$v;
-      $int = $int % pow(10000,$k+1);
+    if ($count > (4 * ($k + 1))){
+      if ($int !== 0) $tmp .= number_format(floor($int / pow(10000, $k + 1))) . $v;
+      $int = $int % pow(10000, $k + 1);
     }
   }
-  if($int!==0) $tmp .= number_format($int % pow(10000,$k+1));
+  if ($int !== 0) $tmp .= number_format($int % pow(10000, $k + 1));
   return $tmp;
 }
+
+// display group id on ACF groups list.
+function add_posts_columns_postid($columns) {
+  $columns['postid'] = 'ID';
+  return $columns;
+}
+function add_posts_columns_postid_row($column_name, $post_id) {
+  if ('postid' == $column_name) {
+    echo $post_id;
+  }
+}
+add_filter('manage_edit-acf_columns', 'add_posts_columns_postid', 20);
+add_action('manage_acf_posts_custom_column', 'add_posts_columns_postid_row', 20, 2);
 
 ?>
