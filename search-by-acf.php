@@ -91,8 +91,9 @@ function sacf_form($attr, $content=null) {
   return sacf_form_start($attr) . $converted_content . sacf_form_end();
 }
 function sacf_form_start($attr) {
+  global $sacf_form_state;
   $action_uri = home_url('/');
-  return "<form action=\"$action_uri\" class=\"sacf_form\">";
+  return "<form name=\"sacf_form_{$sacf_form_state->get_group_id()}\" action=\"$action_uri\" class=\"sacf_form sacf_form_{$sacf_form_state->get_group_id()}\">";
 }
 function sacf_form_end() {
   global $sacf_form_state;
