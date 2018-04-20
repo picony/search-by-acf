@@ -3,7 +3,7 @@
 Plugin Name: SACF:Search by Advanced Custom Fields
 Plugin URI:
 Description: Search plugin for ACF.
-Version: 1.1
+Version: 1.2
 Author: Tadahiko Suzuki
 Author URI: http://suzukitadahiko.jp
 License: GPLv2 or later
